@@ -1,0 +1,56 @@
+# Fase 2 - San Vicente Informa
+# Este workflow es el "robot" de GitHub Actions: corre solo, sin que vos
+# tengas nada prendido, revisa el feed del blog y actualiza la base de
+# conocimiento si hay notas nuevas.
+
+name: Actualizar base de conocimiento
+
+# CUANDO se ejecuta:
+on:
+  schedule:
+    # Cada 2 horas, las 24 horas. La hora esta en UTC (Argentina es UTC-3),
+    # pero como corre cada 2hs todo el dia, no hace falta convertir nada.
+    - cron: '0 */2 * * *'
+  # Esto agrega un boton "Run workflow" en la pestaña Actions de GitHub,
+  # para poder probarlo manualmente cuando quieras, sin esperar al horario.
+  workflow_dispatch:
+
+# Le damos permiso de ESCRITURA al robot, porque necesita poder guardar
+# (hacer commit y push) los cambios en knowledge_base.json.
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Descarga una copia del repositorio para poder trabajar sobre ella
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      # 2. Instala Python en la maquina virtual gratuita de GitHub
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 3. Instala beautifulsoup4 (lo que pusimos en requirements.txt)
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # 4. Corre nuestro script. "id" nos permite leer despues si hubo
+      #    cambios o no (el script lo informa via GITHUB_OUTPUT).
+      - name: Revisar el feed y actualizar la base
+        id: actualizar_base
+        run: python3 update_knowledge_base.py knowledge_base.json https://www.sanvicenteinforma.com/feeds/posts/default
+
+      # 5. Si hubo notas nuevas, guarda el cambio en el repositorio.
+      #    Si no hubo novedades, este paso se saltea (no genera commits vacios).
+      - name: Guardar cambios en el repositorio
+        if: steps.actualizar_base.outputs.hubo_cambios == 'true'
+        run: |
+          git config user.name "Robot San Vicente Informa"
+          git config user.email "actions@github.com"
+          git add knowledge_base.json
+          git commit -m "Actualizacion automatica: nuevas notas del feed"
+          git push
