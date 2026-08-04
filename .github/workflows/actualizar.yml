@@ -46,11 +46,15 @@ jobs:
 
       # 5. Si hubo notas nuevas, guarda el cambio en el repositorio.
       #    Si no hubo novedades, este paso se saltea (no genera commits vacios).
+      - name: Regenerar el indice de busqueda
+        if: steps.actualizar_base.outputs.hubo_cambios == 'true'
+        run: python3 build_search_index.py knowledge_base.json search_index.json
+
       - name: Guardar cambios en el repositorio
         if: steps.actualizar_base.outputs.hubo_cambios == 'true'
         run: |
           git config user.name "Robot San Vicente Informa"
           git config user.email "actions@github.com"
-          git add knowledge_base.json
-          git commit -m "Actualizacion automatica: nuevas notas del feed"
+          git add knowledge_base.json search_index.json
+          git commit -m "Actualizacion automatica: nuevas notas del feed y su indice"
           git push
