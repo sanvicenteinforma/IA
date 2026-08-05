@@ -30,11 +30,13 @@ PALABRAS_VACIAS = {
     "gracias",
 }
 
-# Si una palabra aparece en mas de este % de las notas, no sirve como
-# palabra clave (es demasiado comun, como "concejo" en un medio que
-# cubre mucha politica local) - la excluimos del indice automaticamente,
-# sin tener que armar una lista a mano de palabras propias del rubro.
-UMBRAL_PALABRA_DEMASIADO_COMUN = 0.15  # 15% de las notas
+# NOTA: antes tenia un filtro que sacaba del indice las palabras que
+# aparecian en mas del 15% de las notas (para evitar que "concejo" opaque
+# a "Holland", por ejemplo). Se saco: el peso IDF de abajo ya resuelve eso
+# matematicamente (le da menos peso, no lo borra), y borrar la palabra del
+# todo tenia un efecto secundario grave - palabras muy comunes PERO
+# igual de importantes (como el nombre de una localidad: "Dos de Mayo")
+# quedaban totalmente invisibles para la busqueda en vez de solo pesar menos.
 
 
 def normalizar(texto: str) -> str:
@@ -79,13 +81,10 @@ def construir_indice(ruta_entrada: str, ruta_salida: str):
         for palabra in palabras_titulo | palabras_contenido:
             frecuencia_documento[palabra] += 1
 
-    # Filtramos palabras demasiado comunes (aparecen en mas del umbral%
-    # de las notas) - no aportan como palabra clave de busqueda.
-    limite_documentos = total_notas * UMBRAL_PALABRA_DEMASIADO_COMUN
-    vocabulario_util = {
-        palabra for palabra, df in frecuencia_documento.items()
-        if df <= limite_documentos
-    }
+    # Ya no filtramos por frecuencia de documento: el peso IDF de abajo
+    # se encarga de bajarle la importancia a las palabras muy comunes
+    # sin borrarlas del todo del indice.
+    vocabulario_util = set(frecuencia_documento.keys())
 
     # IDF (Inverse Document Frequency): cuanto mas rara la palabra, mas
     # peso tiene. Formula estandar de motores de busqueda.
